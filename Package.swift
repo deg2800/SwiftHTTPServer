@@ -6,7 +6,8 @@ import PackageDescription
 let package = Package(
     name: "SwiftHTTPServer",
     dependencies: [
-        .package(url: "https://github.com/apple/swift-nio.git", from: "2.40.0")
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.40.0"),
+        .package(url: "https://github.com/stephencelis/SQLite.swift.git", from: "0.15.3")
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -15,7 +16,8 @@ let package = Package(
             name: "SwiftHTTPServer",
             dependencies: [
                 .product(name: "NIO", package: "swift-nio"),
-                .product(name: "NIOHTTP1", package: "swift-nio")
+                .product(name: "NIOHTTP1", package: "swift-nio"),
+                .product(name: "SQLite", package: "SQLite.swift")
             ]
         )
     ]

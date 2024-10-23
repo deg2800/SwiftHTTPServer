@@ -6,19 +6,19 @@ func startServer(on port: Int) throws {
     defer {
         try? group.syncShutdownGracefully()
     }
-
+        
     let bootstrap = ServerBootstrap(group: group)
         .serverChannelOption(ChannelOptions.backlog, value: 256)
         .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
         .childChannelInitializer { channel in
             channel.pipeline.configureHTTPServerPipeline().flatMap {
-                channel.pipeline.addHandler(HTTPHandler())
+                channel.pipeline.addHandler(httpHandler)
             }
         }
         .childChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
 
     let channel = try bootstrap.bind(host: "0.0.0.0", port: port).wait()
-    printColored("\(CLEAR)\(BOLD)Swift HTTP Server \(MAGENTA)v0.0.1", color: GREEN)
+    printColored("\(BOLD)SwiftHTTPServer \(MAGENTA)v\(config.version)", color: GREEN)
     printColored("Server running on port \(CYAN)\(port)", color: YELLOW)
     printColored("Press CTRL+C to stop the server", color: RED)
     printColored("=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=", color: RESET)

@@ -3,7 +3,7 @@
 # Color codes
 RED='\033[0;31m'
 GREEN='\033[0;32m'
-NC='\033[0m' # No Color
+RESET='\033[0m'
 
 # Ask the user for the resource directory location
 read -p "Enter the resource directory location or press Enter to use default (/var/www/SwiftHTTPServer): " resource_dir
@@ -51,6 +51,8 @@ if [ ! -d "${resource_dir}" ]; then
     echo -e "${GREEN}${resource_dir} directory created.${RESET}"
 else
     echo -e "${GREEN}${resource_dir} directory already exists.${RESET}"
+    echo -e "${GREEN}Removing old files from ${resource_dir}.${RESET}"
+    sudo rm -rf ${resource_dir}/*.*
 fi
 
 # Step 4: Set the correct permissions for the resources directory
@@ -76,6 +78,10 @@ if ! command -v SwiftHTTPServer &> /dev/null; then
 else
     echo -e "${GREEN}SwiftHTTPServer is already in the system PATH.${RESET}"
 fi
+
+# Step 6: Move config to /etc/SwiftHTTPServer/config.json
+sudo mkdir /etc/SwiftHTTPServer
+sudo cp Sources/SwiftHTTPServer/config.json /etc/SwiftHTTPServer/config.json
 
 # Final message to the user
 echo -e "${GREEN}Setup complete! You can now run the server by using the following command:${RESET}"

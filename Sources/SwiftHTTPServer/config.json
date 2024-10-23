@@ -1,0 +1,6 @@
+{
+    "environment" : "development",
+    "version" : "1.0.2",
+    "custom404" : false,
+    "handleTrailingSlash" : false
+}

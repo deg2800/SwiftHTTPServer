@@ -26,39 +26,45 @@ func printColored(_ message: String, color: String) {
     print("\(color)\(message)\(RESET)")
 }
 
-// Parse command-line arguments
 func parseArguments() -> (command: String, port: Int) {
     let arguments = CommandLine.arguments
     var port = 8888
+    var command = ""
 
     if arguments.count == 1 {
         showHelp()
-    }
-
-    guard arguments.contains("run") else {
-        showHelp()
         exit(0)
-    }
-
-    if let portIndex = arguments.firstIndex(where: { $0 == "-p" || $0 == "--port" }), arguments.count > portIndex + 1 {
-        if let customPort = Int(arguments[portIndex + 1]) {
-            port = customPort
-        } else {
-            printColored("Invalid port number.", color: RED)
-            exit(1)
+    } else if arguments.count > 1 {
+        switch arguments[1] {
+        case "run":
+            if let portIndex = arguments.firstIndex(where: { $0 == "-p" || $0 == "--port" }), arguments.count > portIndex + 1 {
+                if let customPort = Int(arguments[portIndex + 1]) {
+                    port = customPort
+                } else {
+                    printColored("Invalid port number.", color: RED)
+                    exit(1)
+                }
+            }
+            command = "run"
+        case "routes":
+            command = "routes"
+        default:
+            showHelp()
+            exit(0)
         }
     }
-
-    return (command: "run", port: port)
+    
+    return (command: command, port: port)
 }
 
 func showHelp() {
     print("""
-    \(GREEN)Swift HTTP Server\(RESET)
+    \(GREEN)SwiftHTTPServer v\(config.version)\(RESET)
     Usage: SwiftHTTPServer <command> [options]
     
     Commands:
       \(YELLOW)run           Starts the HTTP server\(RESET)
+      \(YELLOW)routes        Shows registered routes\(RESET)
       -h, --help    Show this help message
     
     Options:

@@ -1,10 +1,20 @@
 import NIO
 import NIOHTTP1
 import Foundation
+import SQLite
 
 final class HTTPHandler: ChannelInboundHandler {
     typealias InboundIn = HTTPServerRequestPart
     typealias OutboundOut = HTTPServerResponsePart
+    
+    private var accumulatedBody: ByteBuffer?
+    private var currentRequest: HTTPRequestHead?
+    
+    let router: Router
+    
+    init(router: Router) {
+        self.router = router
+    }
 
     var resourceDirectory: String {
         var resDir = "/var/www/SwiftHTTPServer"
@@ -27,61 +37,108 @@ final class HTTPHandler: ChannelInboundHandler {
 
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         let reqPart = self.unwrapInboundIn(data)
-        
+                
         switch reqPart {
         case .head(let request):
             print(" ")
             printColored("=*=*=*=*= \(YELLOW)\(UNDERSCORE)New Request\(RESET)\(MAGENTA) =*=*=*=*=", color: MAGENTA)
             printColored("Incoming request from \(YELLOW)\(request.headers["host"])\(RESET)", color: BLUE)
             printColored("User Agent: \(YELLOW)\(request.headers["user-agent"])\(RESET)", color: BLUE)
+            
+            currentRequest = request
+            accumulatedBody = nil
 
             switch request.method {
                 case .GET:
-                    printColored("Received \(YELLOW)GET\(BLUE) request:\(RESET) \(request.uri)", color: BLUE)
+                    printColored("Received \(YELLOW)GET\(BLUE) request:\(CYAN) \(request.uri)", color: BLUE)
                 case .POST:
-                    printColored("Received \(YELLOW)POST\(BLUE) request:\(RESET) \(request.uri)", color: BLUE)
+                    printColored("Received \(YELLOW)POST\(BLUE) request:\(CYAN) \(request.uri)", color: BLUE)
+                    accumulatedBody = ByteBuffer()
                 case .PUT:
-                    printColored("Received \(YELLOW)PUT\(BLUE) request:\(RESET) \(request.uri)", color: BLUE)
+                    printColored("Received \(YELLOW)PUT\(BLUE) request:\(CYAN) \(request.uri)", color: BLUE)
                 case .DELETE:
-                    printColored("Received \(YELLOW)DELETE\(BLUE) request:\(RESET) \(request.uri)", color: BLUE)
+                    printColored("Received \(YELLOW)DELETE\(BLUE) request:\(CYAN) \(request.uri)", color: BLUE)
                 default:
                     break
             }
-            handleRequest(uri: request.uri, context: context)
-            
-        case .body:
-            break
-        
+        case .body(let byteBuffer):
+            accumulatedBody = byteBuffer
         case .end:
-            break
+            guard let request = currentRequest else { return }
+            
+            let method = request.method
+            let uri = request.uri
+            let body = accumulatedBody
+            
+            router.routeRequest(uri: uri, method: method, body: body, context: context)
+            
+            accumulatedBody = nil
+            currentRequest = nil
         }
     }
 
-    func handleRequest(uri: String, context: ChannelHandlerContext) {
-        let filePath = getFilePath(for: uri)
+    func redirect(to uri: String, context: ChannelHandlerContext) {
+        printColored("Redirecting to: \(CYAN)\(uri)", color: GREEN)
+        let headers = HTTPHeaders([("Location", uri)])
+        let responseHead = HTTPResponseHead(version: .http1_1, status: .seeOther, headers: headers)
+        
+        context.write(self.wrapOutboundOut(.head(responseHead)), promise: nil)
+        context.write(self.wrapOutboundOut(.end(nil)), promise: nil)
+        context.flush()
+    }
 
-        if let html = try? String(contentsOfFile: filePath, encoding: .utf8) {
-            let headers = HTTPHeaders([("content-type", "text/html; charset=utf-8")])
-            let responseHead = HTTPResponseHead(version: .http1_1, status: .ok, headers: headers)
-            context.write(self.wrapOutboundOut(.head(responseHead)), promise: nil)
-            
-            printColored("Sending response: \(responseHead)", color: GREEN)
-            
-            let body = HTTPServerResponsePart.body(.byteBuffer(ByteBuffer(string: html)))
-            context.write(self.wrapOutboundOut(body), promise: nil)
-            
-            context.writeAndFlush(self.wrapOutboundOut(.end(nil)), promise: nil)
-        } else {
-            serve404(context: context)
+    func parseFormData(_ bodyData: ByteBuffer) -> [String: String] {
+        let bodyString = bodyData.getString(at: 0, length: bodyData.readableBytes) ?? ""
+        var formData: [String: String] = [:]
+        let keyValuePairs = bodyString.split(separator: "&")
+        
+        for pair in keyValuePairs {
+            let components = pair.split(separator: "=")
+            if components.count == 2 {
+                let key = String(components[0]).removingPercentEncoding ?? ""
+                let value = String(components[1]).removingPercentEncoding ?? ""
+                formData[key] = value
+            }
         }
+        return formData
+    }
+    
+    func sendHtmlResponse(html: String, isError: Bool = false, status: HTTPResponseStatus = .ok, context: ChannelHandlerContext) {
+        let headers = HTTPHeaders([("content-type", "text/html; charset=utf-8")])
+        let responseHead = HTTPResponseHead(version: .http1_1, status: status, headers: headers)
+        context.write(self.wrapOutboundOut(.head(responseHead)), promise: nil)
+        
+        printColored("Sending HTML response: \(responseHead)", color: isError ? RED : GREEN)
+        
+        let body = HTTPServerResponsePart.body(.byteBuffer(ByteBuffer(string: html)))
+        context.write(self.wrapOutboundOut(body), promise: nil)
+        
+        context.writeAndFlush(self.wrapOutboundOut(.end(nil)), promise: nil)
+    }
+    
+    func sendBinaryResponse(data: Data, mimeType: String, status: HTTPResponseStatus = .ok, context: ChannelHandlerContext) {
+        let headers = HTTPHeaders([("content-type", mimeType),
+                                   ("content-length", "\(data.count)")])
+        let responseHead = HTTPResponseHead(version: .http1_1, status: status, headers: headers)
+        context.write(self.wrapOutboundOut(.head(responseHead)), promise: nil)
+        
+        printColored("Sending binary response: \(responseHead)", color: GREEN)
+
+        var buffer = context.channel.allocator.buffer(capacity: data.count)
+        buffer.writeBytes(data)
+        
+        let body = HTTPServerResponsePart.body(.byteBuffer(buffer))
+        context.write(self.wrapOutboundOut(body), promise: nil)
+        
+        context.writeAndFlush(self.wrapOutboundOut(.end(nil)), promise: nil)
     }
 
     func getFilePath(for uri: String) -> String {
         var filePath = resourceDirectory + uri
         
         if uri.hasSuffix("/") {
-            let indexHtmlPath = resourceDirectory + uri + "index.html"
-            let indexHtmPath = resourceDirectory + uri + "index.htm"
+            let indexHtmlPath = filePath + "index.html"
+            let indexHtmPath = filePath + "index.htm"
             
             if FileManager.default.fileExists(atPath: indexHtmlPath) {
                 filePath = indexHtmlPath
@@ -93,31 +150,18 @@ final class HTTPHandler: ChannelInboundHandler {
                 filePath += ".html"
             }
         }
-        
+        printColored("File path: \(filePath)", color: CYAN)
         return filePath
     }
 
-    func serve404(context: ChannelHandlerContext) {
+    func serve404(uri: String = "", context: ChannelHandlerContext) {
         let errorFilePath = "\(resourceDirectory)/404.html"
 
-        if let errorHtml = try? String(contentsOfFile: errorFilePath, encoding: .utf8) {
-            let headers = HTTPHeaders([("content-type", "text/html; charset=utf-8")])
-            let responseHead = HTTPResponseHead(version: .http1_1, status: .notFound, headers: headers)
-            context.write(self.wrapOutboundOut(.head(responseHead)), promise: nil)
-            
-            let body = HTTPServerResponsePart.body(.byteBuffer(ByteBuffer(string: errorHtml)))
-            context.write(self.wrapOutboundOut(body), promise: nil)
-            printColored("Sending response: \(responseHead)", color: RED)
-            context.writeAndFlush(self.wrapOutboundOut(.end(nil)), promise: nil)
+        if let errorHtml = try? String(contentsOfFile: errorFilePath, encoding: .utf8), config.custom404 {
+            sendHtmlResponse(html: errorHtml, isError: true, status: .notFound, context: context)
         } else {
-            let headers = HTTPHeaders([("content-type", "text/html; charset=utf-8")])
-            let responseHead = HTTPResponseHead(version: .http1_1, status: .notFound, headers: headers)
-            context.write(self.wrapOutboundOut(.head(responseHead)), promise: nil)
-            
-            let body = HTTPServerResponsePart.body(.byteBuffer(ByteBuffer(string: "<html><body><h1>404 - Not Found</h1></body></html>")))
-            context.write(self.wrapOutboundOut(body), promise: nil)
-            printColored("Sending response: \(responseHead)", color: RED)
-            context.writeAndFlush(self.wrapOutboundOut(.end(nil)), promise: nil)
+            let errorHtml = TemplatePage(title: "404 - Not Found", body: "<h1>404 - Not Found</h1><p>The requested resource (\(uri)) could not be found.</p><p><a href=\"/\">Return to the home page</a></p>").render()
+            sendHtmlResponse(html: errorHtml, isError: true, status: .notFound, context: context)
         }
     }
 
