@@ -14,6 +14,10 @@ I'd like to add native SSL to the server in the future, but for now you can set 
 
 #### Instructions
 
+If installing on macOS, so long as you already have Xcode installed, you should already have the Swift command line tools. In Terminal, run `swift --version` and if you see the version displayed you're all set. The latest version of the server is configured to use a SQLite database which should also already be installed. Run `sqlite3 --version` to verify.
+
+If installing on Linux, first make sure that Swift is installed and exported to your PATH. Instructions for your distro can be found at https://swift.org. Once you can verify that running `swift --version` shows the Swift version, you also need to make sure that the `libsqlite3-dev` package is installed or SwiftNIO will not compile. Once both are installed, continue to the next step.
+
 Clone this repo and run `sudo ./build_server.sh`. If you receive a permission error, the script may not be executable. Run `chmod +x build_server.sh` to make the script executable, and run `sudo ./build_server.sh` again.
 
 You will be asked for a resource location, which will default to `/var/www/SwiftHTTPServer`. Any files in the project Resources directory will be copied here and this is where the running server will serve files from.
@@ -26,4 +30,4 @@ Alternatively, you can run `SwiftHTTPServer run -p [port]` or `SwiftHTTPServer r
 
 Running `SwiftHTTPServer routes` will display a list of all registered routes found in registered modules. I intend on documenting how modules work, but for now, you can copy the modules I have created as a guide. `AdminUsersModule` shows different routes handling SQLite CRUD operations and handling both GET and POST HTTP requests. Register modules in `main.swift` after initializing the `ModuleManager` by calling `moduleManager.registerModule([ModuleName]())`. 
 
-If you've gotten to this point and now wish to make this server *internet accessible*, I would recommend using a reverse proxy with something like Nginx or Apache, as this server is HTTP, not HTTPS. If there is a demand for it, I may write a guide for it, otherwise a quick search on Google should point you in the right direction.
+If you've gotten to this point and now wish to make this server *internet accessible*, I would recommend using a reverse proxy with something like Nginx or Apache, as this server is HTTP, not HTTPS. If there is a demand for it, I may write a guide for it, otherwise a quick search on Google should point you in the right direction. **Be warned** that in the current state of the server, there exists a database containing dummy user info and the ability for anyone to create more. I have not yet written the authentication middleware and the entire /admin route is currently unprotected and **public**, which also includes /admin/log which will show a log containing the IP addresses of every request the server receives. You can modify the register() function of the routes in the different modules and set protected to true which will display an access denied page for those routes, or you can remove the module registrations from main.swift which remove all routes from that module. Or you can write your own authentication middleware and regester it with the middleware manager in main.swift. Be creative, it's your server; the choice is yours!
