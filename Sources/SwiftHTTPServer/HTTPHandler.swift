@@ -37,12 +37,19 @@ final class HTTPHandler: ChannelInboundHandler {
 
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         let reqPart = self.unwrapInboundIn(data)
-                
+        
         switch reqPart {
         case .head(let request):
+            var ipAddress: String = ""
+            let nginxProxyRealIP = request.headers["X-Real-IP"]
+            if !nginxProxyRealIP.isEmpty {
+                ipAddress = nginxProxyRealIP.joined()
+            } else {
+                ipAddress = "\(context.remoteAddress?.ipAddress ?? "Unknown")"
+            }
             print(" ")
             printColored("=*=*=*=*= \(YELLOW)\(UNDERSCORE)New Request\(RESET)\(MAGENTA) =*=*=*=*=", color: MAGENTA)
-            printColored("Incoming request from \(YELLOW)\(context.remoteAddress?.ipAddress ?? "Unknown")\(RESET)", color: BLUE)
+            printColored("Incoming request from \(YELLOW)\(ipAddress)\(RESET)", color: BLUE)
             printColored("User Agent: \(YELLOW)\(request.headers["user-agent"])\(RESET)", color: BLUE)
             printColored("Referrer: \(YELLOW)\(request.headers["referer"])\(RESET)", color: BLUE)
             
