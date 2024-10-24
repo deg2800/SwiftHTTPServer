@@ -20,8 +20,15 @@ class LoggingMiddleware: Middleware {
     func handle(context: ContextWrapper, next: @escaping (ContextWrapper) -> Void) {
         printColored("Handling \(YELLOW)Logging\(BLUE) Middleware", color: BLUE)
         if context.parameters["uri"] ?? "" != "/admin/log" {
+            var ipAddress: String = ""
+            let nginxProxyRealIP = context.parameters["nginx-proxy-real-ip"] ?? ""
+            if !nginxProxyRealIP.isEmpty {
+                ipAddress = nginxProxyRealIP
+            } else {
+                ipAddress = "\(context.context.remoteAddress?.ipAddress ?? "Unknown IP")"
+            }
             var newRequest = "** New Request: \(Date())\n"
-            let incomingIP = "Incoming request from \(context.context.remoteAddress?.ipAddress ?? "Unknown IP")\n"
+            let incomingIP = "Incoming request from \(ipAddress)\n"
             let userAgent = "User Agent: [\(context.parameters["user-agent"] ?? "Unknown User Agent")]\n"
             let referrer = "Referrer: \(context.parameters["referrer"] ?? "Unknown Referrer")\n"
             let methodAndURI = "Received \(context.parameters["method"] ?? "Unknown Method") request: \(context.parameters["uri"] ?? "Unknown URI")\n"

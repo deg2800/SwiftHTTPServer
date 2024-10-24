@@ -75,6 +75,7 @@ class Router {
         parameters["uri"] = uri
         parameters["user-agent"] = userAgent
         parameters["referrer"] = "\(request.headers["referer"])"
+        parameters["nginx-proxy-real-ip"] = "\(request.headers["X-Real-IP"])"
         
         let contextWrapper = ContextWrapper(context: context, parameters: parameters)
         
