@@ -1,10 +1,14 @@
 import Foundation
 
 let config = AppConfig.loadData("/etc/SwiftHTTPServer/config.json")
-let router = Router()
+let middlewareManager = MiddlewareManager()
+let router = Router(middlewareManager: middlewareManager)
 let httpHandler = HTTPHandler(router: router)
 let moduleManager = ModuleManager(router: router)
 let database = try Database()
+
+let loggingMiddleware = LoggingMiddleware(logFilePath: "SwiftHTTPServer.log")
+middlewareManager.use(loggingMiddleware)
 
 moduleManager.registerModule(HomeModule())
 moduleManager.registerModule(AdminModule())

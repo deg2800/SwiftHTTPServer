@@ -42,8 +42,9 @@ final class HTTPHandler: ChannelInboundHandler {
         case .head(let request):
             print(" ")
             printColored("=*=*=*=*= \(YELLOW)\(UNDERSCORE)New Request\(RESET)\(MAGENTA) =*=*=*=*=", color: MAGENTA)
-            printColored("Incoming request from \(YELLOW)\(request.headers["host"])\(RESET)", color: BLUE)
+            printColored("Incoming request from \(YELLOW)\(context.remoteAddress?.ipAddress ?? "Unknown")\(RESET)", color: BLUE)
             printColored("User Agent: \(YELLOW)\(request.headers["user-agent"])\(RESET)", color: BLUE)
+            printColored("Referrer: \(YELLOW)\(request.headers["referer"])\(RESET)", color: BLUE)
             
             currentRequest = request
             accumulatedBody = nil
@@ -65,12 +66,9 @@ final class HTTPHandler: ChannelInboundHandler {
             accumulatedBody = byteBuffer
         case .end:
             guard let request = currentRequest else { return }
-            
-            let method = request.method
-            let uri = request.uri
             let body = accumulatedBody
             
-            router.routeRequest(uri: uri, method: method, body: body, context: context)
+            router.routeRequest(request: request, body: body, context: context)
             
             accumulatedBody = nil
             currentRequest = nil

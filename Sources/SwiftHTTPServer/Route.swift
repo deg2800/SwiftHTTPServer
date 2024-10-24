@@ -45,6 +45,11 @@ struct Route {
 
 class Router {
     private var routes: [String: Route] = [:]
+    private var middlewareManager: MiddlewareManager
+    
+    init(middlewareManager: MiddlewareManager) {
+        self.middlewareManager = middlewareManager
+    }
     
     private let protectedHandler: RequestHandler = { context in
         let content = TemplatePage(title: "Protected", body: "<h1>Access Denied</h1><p>This page is protected</p><p><a href=\"/\">Back to site</a></p>")
@@ -60,33 +65,47 @@ class Router {
         }
     }
         
-    func routeRequest(uri: String, method: HTTPMethod, body: ByteBuffer?, context: ChannelHandlerContext) {
-        switch method {
-        case .GET:
-            handleGetRequest(uri: uri, context: context)
-        case .POST:
-            if let body {
-                handlePostRequest(uri: uri, body: body, context: context)
-            } else {
-                handleGetRequest(uri: uri, context: context)
+    func routeRequest(request: HTTPRequestHead, body: ByteBuffer?, context: ChannelHandlerContext) {
+        let method = request.method
+        let uri = request.uri
+        let headers = request.headers
+        let userAgent = headers["user-agent"].joined(separator: ",")
+        var parameters: [String: String] = [:]
+        parameters["method"] = method.rawValue
+        parameters["uri"] = uri
+        parameters["user-agent"] = userAgent
+        parameters["referrer"] = "\(request.headers["referer"])"
+        
+        let contextWrapper = ContextWrapper(context: context, parameters: parameters)
+        
+        middlewareManager.applyMiddlewares(context: contextWrapper) { updatedContext in
+            switch method {
+            case .GET:
+                self.handleGetRequest(uri: uri, context: updatedContext)
+            case .POST:
+                if let body {
+                    self.handlePostRequest(uri: uri, body: body, context: updatedContext.context)
+                } else {
+                    self.handleGetRequest(uri: uri, context: updatedContext)
+                }
+            default:
+                let errorMessage = "Unsupported HTTP method \(method)"
+                httpHandler.sendHtmlResponse(html: errorMessage, isError: true, context: context)
             }
-        default:
-            let errorMessage = "Unsupported HTTP method \(method)"
-            httpHandler.sendHtmlResponse(html: errorMessage, isError: true, context: context)
         }
     }
     
-    private func handleGetRequest(uri: String, context: ChannelHandlerContext) {
+    private func handleGetRequest(uri: String, context: ContextWrapper) {
         if let route = routes[uri] {
             if route.protected {
-                protectedHandler(context)
+                protectedHandler(context.context)
             } else {
-                route.requestHandler(ContextWrapper(context: context, parameters: [:]))
+                route.requestHandler(context)
             }
         } else {
-            if handleDynamicRoute(uri: uri, context: context) { return }
+            if handleDynamicRoute(uri: uri, context: context.context) { return }
 
-            routeStaticFile(uri: uri, context: context)
+            routeStaticFile(uri: uri, context: context.context)
         }
     }
     
