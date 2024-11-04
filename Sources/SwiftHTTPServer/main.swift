@@ -7,15 +7,14 @@ let httpHandler = HTTPHandler(router: router)
 let moduleManager = ModuleManager(router: router)
 let database = try Database()
 
-let loggingMiddleware = LoggingMiddleware(logFilePath: "SwiftHTTPServer.log")
+let loggingMiddleware = LoggingMiddleware(database: database.conn)
 middlewareManager.use(loggingMiddleware)
 
 moduleManager.registerModule(HomeModule())
-moduleManager.registerModule(AdminModule())
+moduleManager.registerModule(AdminModule(loggingMiddleware: loggingMiddleware))
 moduleManager.registerModule(AdminUsersModule())
 
 do {
-    //print("\(CLEAR)")
     let (command, port) = parseArguments()
     if command == "run" {
         try startServer(on: port)

@@ -52,7 +52,7 @@ if [ ! -d "${resource_dir}" ]; then
 else
     echo -e "${GREEN}${resource_dir} directory already exists.${RESET}"
     echo -e "${GREEN}Removing old files from ${resource_dir}.${RESET}"
-    sudo rm -rf ${resource_dir}/*.*
+    sudo rm -rf ${resource_dir}/*
 fi
 
 # Step 4: Set the correct permissions for the resources directory
@@ -68,7 +68,7 @@ echo -e "${GREEN}Permissions set for ${resource_dir}.${RESET}"
 
 # Copy resources
 echo -e "${GREEN}Copying resource files to ${resource_dir}...${RESET}"
-sudo cp Resources/*.* ${resource_dir}
+sudo cp -r Resources/* ${resource_dir}
 
 # Step 5: Add the server to the system PATH (if necessary)
 if ! command -v SwiftHTTPServer &> /dev/null; then

@@ -24,16 +24,16 @@ class AdminUsersModule: Module {
                 let userTable = self.renderUsersTable()
                 
                 let content = TemplatePage(title: "Users Admin", body: """
+                    <breadcrumb><a href=\"/admin\">Admin Home</a> > Users</breadcrumb>
                     <h1>Users List</h1>
-                    <p><a href="/admin/users/add">Add User</a></p>
+                    <p><a href="/admin/users/add"><button class="button">Add User</button></a></p>
                     \(userTable)
-                    <p><a href="/admin">Back to admin home</a></p>
                 """)
                 
                 let html = content.render()
                 httpHandler.sendHtmlResponse(html: html, context: context.context)
             } catch {
-                //httpHandler.sendErrorResponse(context: context, error: error)
+                httpHandler.sendErrorResponse(context: context.context, message: error.localizedDescription)
             }
         })) // "/admin/users"
         
@@ -42,13 +42,14 @@ class AdminUsersModule: Module {
             if context.parameters["method"] == "POST" {
                 print("POST request received")
                 guard let bodyData = context.body else {
-                    httpHandler.sendHtmlResponse(html: "<h1>Error</h1><p>No body data received</p>", isError: true, context: context.context)
+                    httpHandler.sendHtmlResponse(html: "<breadcrumb><a href=\"/admin\">Admin Home</a> > <a href=\"/admin/users\">Users</a> > Add User</breadcrumb><h1>Error</h1><p>No body data received</p>", isError: true, context: context.context)
                     return
                 }
                 self.handleUserPostRequest(context.context, bodyData: bodyData)
                 return
             }
             let content = TemplatePage(title: "Add User", body: """
+                <breadcrumb><a href=\"/admin\">Admin Home</a> > <a href=\"/admin/users\">Users</a> > Add User</breadcrumb>
                 <h1>Add User</h1>
                 <form action="/admin/users/add" method="post">
                     <div class="form-group">
@@ -63,9 +64,9 @@ class AdminUsersModule: Module {
                         <input type="checkbox" class="form-check-input" name="isAdmin" id="isAdmin">
                         <label class="form-check-label" for="isAdmin">Is Admin</label>
                     </div>
-                    <button type="submit" class="btn btn-primary">Add User</button>
+                    <p><button type="submit" class="button">Add User</button></p>
                 </form>
-                <p><a href="/admin/users">Back to user list</a></p>
+                <p><a href="/admin/users"><button class="button-destructive">Cancel and return to user list</button></a></p>
             """)
             
             let html = content.render()
@@ -84,6 +85,7 @@ class AdminUsersModule: Module {
             if id.isEmpty {
                 printColored("ID Empty", color: RED)
                 content = TemplatePage(title: "Get User", body: """
+                <breadcrumb><a href=\"/admin\">Admin Home</a> > <a href=\"/admin/users\">Users</a> > Get User</breadcrumb>
                 <h1>Get User</h1>
                 <p>ID Empty</p>
                 <p><a href="/admin/users">Back to user list</a></p>
@@ -91,17 +93,22 @@ class AdminUsersModule: Module {
 
             } else {
                 if let user = self.getUser(id: userId) {
+                    let titleTag: String = user.isAdmin ? "yellowTitle" : "blueTitle"
+                    let userType: String = user.isAdmin ? "Admin" : "User"
                     content = TemplatePage(title: "Get User", body: """
+                    <breadcrumb><a href=\"/admin\">Admin Home</a> > <a href=\"/admin/users\">Users</a> > Get User [\(user.username)]</breadcrumb>
                     <h1>Get User</h1>
+                    <div class="tile">
+                    <\(titleTag)>\(userType)</\(titleTag)>
                     <p>ID: \(user.id)</p>
                     <p>Username: \(user.username)</p>
-                    <p>Is Admin: \(user.isAdmin ? "Yes" : "No")</p>
-                    <p><a href="/admin/users/edit/\(user.id)">Edit user</a></p>
-                    <p><a href="/admin/users/delete/\(user.id)">Delete user</a></p>
-                    <p><a href="/admin/users">Back to user list</a></p>
+                    </div>
+                    <p><a href="/admin/users/edit/\(user.id)"><button class="button">Edit user</button></a></p>
+                    <p><a href="/admin/users/delete/\(user.id)"><button class="button-destructive">Delete user</button></a></p>
                 """)
                 } else {
                     content = TemplatePage(title: "Get User", body: """
+                <breadcrumb><a href=\"/admin\">Admin Home</a> > <a href=\"/admin/users\">Users</a> > Get User</breadcrumb>
                 <h1>Get User</h1>
                 <p>ID \(id) not found</p>
                 <p><a href="/admin/users">Back to user list</a></p>
@@ -121,7 +128,7 @@ class AdminUsersModule: Module {
 
             if context.parameters["method"] == "POST" {
                 guard let bodyData = context.body else {
-                    httpHandler.sendHtmlResponse(html: "<h1>Error</h1><p>No body data received</p>", isError: true, context: context.context)
+                    httpHandler.sendHtmlResponse(html: "<breadcrumb><a href=\"/admin\">Admin Home</a> > <a href=\"/admin/users\">Users</a> > Edit User</breadcrumb><h1>Error</h1><p>No body data received</p>", isError: true, context: context.context)
                     return
                 }
                 self.handleUserPostRequest(context.context, bodyData: bodyData, edit: true, userId: Int64(userId))
@@ -133,6 +140,7 @@ class AdminUsersModule: Module {
             if id.isEmpty {
                 printColored("ID Empty", color: RED)
                 content = TemplatePage(title: "Get User", body: """
+                <breadcrumb><a href=\"/admin\">Admin Home</a> > <a href=\"/admin/users\">Users</a> > Edit User</breadcrumb>
                 <h1>Edit User</h1>
                 <p>ID Empty</p>
                 <p><a href="/admin/users">Back to user list</a></p>
@@ -142,6 +150,7 @@ class AdminUsersModule: Module {
                 if let user = self.getUser(id: userId) {
                     let isAdmin = user.isAdmin ? "checked" : ""
                     content = TemplatePage(title: "Get User", body: """
+                <breadcrumb><a href=\"/admin\">Admin Home</a> > <a href=\"/admin/users\">Users</a> > Edit User [\(user.username)]</breadcrumb>
                 <h1>Edit User</h1>
                 <p>User ID: \(user.id)</p>
                 <p>Created at: \(user.createdAt)</p>
@@ -159,13 +168,13 @@ class AdminUsersModule: Module {
                         <label class="form-check-label" for="isAdmin">Is Admin</label>
                     </div>
                     <input type="hidden" id="id" name="id" value="\(user.id)">
-                    <button type="submit" class="btn btn-primary">Edit User</button>
+                    <p><button type="submit" class="button">Edit User</button></p>
                 </form>
-                <p><a href="/admin/users/\(user.id)">Cancel changes & return to user</a></p>
-                <p><a href="/admin/users">Back to user list</a></p>
+                <p><a href="/admin/users/\(user.id)"><button class="button-destructive">Cancel changes & return to user</button></a></p>
                 """)
                 } else {
                     content = TemplatePage(title: "Get User", body: """
+                <breadcrumb><a href=\"/admin\">Admin Home</a> > <a href=\"/admin/users\">Users</a> > Edit User</breadcrumb>
                 <h1>Edit User</h1>
                 <p>ID \(id) not found</p>
                 <p><a href="/admin/users">Back to user list</a></p>
@@ -241,7 +250,6 @@ class AdminUsersModule: Module {
         }
     }
     
-    // Fetch all users from the database
     func getUsers() throws -> [User] {
         var userList: [User] = []
         let users = try database.conn.prepare(table)
@@ -308,7 +316,6 @@ class AdminUsersModule: Module {
         return table.filter(id == ID)
     }
     
-    // Render the users as an HTML table
     func renderUsersTable() -> String {
         guard !users.isEmpty else { return "<p>No users found.</p>" }
         
@@ -321,7 +328,7 @@ class AdminUsersModule: Module {
             html += """
             <tr>
                 <td><a href=\"/admin/users/\(user.id)\">\(user.id)</a></td>
-                <td>\(user.username)</td>
+                <td><a href=\"/admin/users/\(user.id)\">\(user.username)</a></td>
                 <td>\(user.isAdmin ? "Yes" : "No")</td>
                 <td>\(user.createdAt)</td>
                 <td><a href="/admin/users/delete/\(user.id)">Delete user</a></td>
@@ -364,7 +371,6 @@ class AdminUsersModule: Module {
 
 }
 
-// Struct to represent a user
 struct User {
     let id: Int
     let username: String

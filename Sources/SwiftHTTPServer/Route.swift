@@ -69,14 +69,26 @@ class Router {
         let method = request.method
         let uri = request.uri
         let headers = request.headers
-        let userAgent = headers["user-agent"].joined(separator: ",")
-        var parameters: [String: String] = [:]
-        parameters["method"] = method.rawValue
-        parameters["uri"] = uri
-        parameters["user-agent"] = userAgent
-        parameters["referrer"] = "\(request.headers["referer"])"
-        parameters["nginx-proxy-real-ip"] = "\(request.headers["X-Real-IP"])"
         
+        let userAgent = headers["user-agent"].first ?? "Unknown User Agent"
+        let referrer = headers["referer"].first ?? "Unknown Referrer"
+        
+        var parameters: [String: String] = [
+            "method": method.rawValue,
+            "uri": uri,
+            "user-agent": userAgent,
+            "referrer": referrer
+        ]
+        
+        if let realIP = headers["X-Real-IP"].first {
+            parameters["nginx-proxy-real-ip"] = realIP
+        }
+        
+        for (headerName, headerValues) in headers {
+            let headerValueString = headerValues.map(String.init).joined(separator: "")
+            parameters[headerName.lowercased()] = headerValueString
+        }
+
         let contextWrapper = ContextWrapper(context: context, parameters: parameters)
         
         middlewareManager.applyMiddlewares(context: contextWrapper) { updatedContext in
@@ -173,24 +185,31 @@ class Router {
             } else {
                 httpHandler.serve404(uri: uri, context: context)
             }
-
-        case "jpg", "jpeg", "png", "gif":
-            // Handle image files
-            if let imageData = try? Data(contentsOf: URL(fileURLWithPath: filePath)) {
+        case "jpg", "jpeg", "png", "gif", "css":
+            if let fileData = try? Data(contentsOf: URL(fileURLWithPath: filePath)) {
                 let mimeType: String
+                var fileType: String = ""
+                
                 switch fileExtension(for: filePath) {
                 case "jpg", "jpeg":
                     mimeType = "image/jpeg"
+                    fileType = "image"
                 case "png":
                     mimeType = "image/png"
+                    fileType = "image"
                 case "gif":
                     mimeType = "image/gif"
+                    fileType = "image"
+                case "css":
+                    mimeType = "text/css"
+                    fileType = "css"
                 default:
                     mimeType = "application/octet-stream"
+                    fileType = "data"
                 }
                 
-                printColored("Returning image file \(CYAN)\(filePath)\(GREEN) for URI \(CYAN)\(uri)", color: GREEN)
-                httpHandler.sendBinaryResponse(data: imageData, mimeType: mimeType, context: context)
+                printColored("Returning \(fileType) file \(CYAN)\(filePath)\(GREEN) for URI \(CYAN)\(uri)", color: GREEN)
+                httpHandler.sendBinaryResponse(data: fileData, mimeType: mimeType, context: context)
             } else {
                 httpHandler.serve404(uri: uri, context: context)
             }

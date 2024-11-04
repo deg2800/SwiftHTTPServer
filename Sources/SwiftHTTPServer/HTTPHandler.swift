@@ -37,35 +37,37 @@ final class HTTPHandler: ChannelInboundHandler {
 
     func channelRead(context: ChannelHandlerContext, data: NIOAny) {
         let reqPart = self.unwrapInboundIn(data)
-        
         switch reqPart {
         case .head(let request):
+            print(" ")
+            printColored("=*=*=*=*= \(YELLOW)\(UNDERSCORE)New Request\(RESET)\(MAGENTA) =*=*=*=*=", color: MAGENTA)
+            printColored("Processing channel read in HTTPHandler", color: BLUE)
             var ipAddress: String = ""
             let nginxProxyRealIP = request.headers["X-Real-IP"]
             if !nginxProxyRealIP.isEmpty {
+                printColored("↳ Found X-Real-IP header. Getting real IP from header", color: BLUE)
                 ipAddress = nginxProxyRealIP.joined()
             } else {
                 ipAddress = "\(context.remoteAddress?.ipAddress ?? "Unknown")"
+                printColored("↳ No X-Real-IP header found", color: BLUE)
             }
-            print(" ")
-            printColored("=*=*=*=*= \(YELLOW)\(UNDERSCORE)New Request\(RESET)\(MAGENTA) =*=*=*=*=", color: MAGENTA)
-            printColored("Incoming request from \(YELLOW)\(ipAddress)\(RESET)", color: BLUE)
-            printColored("User Agent: \(YELLOW)\(request.headers["user-agent"])\(RESET)", color: BLUE)
-            printColored("Referrer: \(YELLOW)\(request.headers["referer"])\(RESET)", color: BLUE)
+            printColored("↳ Incoming request from \(YELLOW)\(ipAddress)\(RESET)", color: BLUE)
+            printColored("↳ User Agent: \(YELLOW)\(request.headers["user-agent"])\(RESET)", color: BLUE)
+            printColored("↳ Referrer: \(YELLOW)\(request.headers["referer"])\(RESET)", color: BLUE)
             
             currentRequest = request
             accumulatedBody = nil
 
             switch request.method {
                 case .GET:
-                    printColored("Received \(YELLOW)GET\(BLUE) request:\(CYAN) \(request.uri)", color: BLUE)
+                    printColored("↳ Handling \(YELLOW)GET\(BLUE) request:\(CYAN) \(request.uri)", color: BLUE)
                 case .POST:
-                    printColored("Received \(YELLOW)POST\(BLUE) request:\(CYAN) \(request.uri)", color: BLUE)
+                    printColored("↳ Handling \(YELLOW)POST\(BLUE) request:\(CYAN) \(request.uri)", color: BLUE)
                     accumulatedBody = ByteBuffer()
                 case .PUT:
-                    printColored("Received \(YELLOW)PUT\(BLUE) request:\(CYAN) \(request.uri)", color: BLUE)
+                    printColored("↳ Handling \(YELLOW)PUT\(BLUE) request:\(CYAN) \(request.uri)", color: BLUE)
                 case .DELETE:
-                    printColored("Received \(YELLOW)DELETE\(BLUE) request:\(CYAN) \(request.uri)", color: BLUE)
+                    printColored("↳ Handling \(YELLOW)DELETE\(BLUE) request:\(CYAN) \(request.uri)", color: BLUE)
                 default:
                     break
             }
@@ -83,7 +85,7 @@ final class HTTPHandler: ChannelInboundHandler {
     }
 
     func redirect(to uri: String, context: ChannelHandlerContext) {
-        printColored("Redirecting to: \(CYAN)\(uri)", color: GREEN)
+        printColored("↳ Redirecting to: \(CYAN)\(uri)", color: GREEN)
         let headers = HTTPHeaders([("Location", uri)])
         let responseHead = HTTPResponseHead(version: .http1_1, status: .seeOther, headers: headers)
         
@@ -173,5 +175,14 @@ final class HTTPHandler: ChannelInboundHandler {
     func errorCaught(context: ChannelHandlerContext, error: Error) {
         printColored("Error: \(error)", color: RED)
         context.close(promise: nil)
+    }
+    
+    func sendErrorResponse(context: ChannelHandlerContext, message: String, status: HTTPResponseStatus = .internalServerError) {
+        let errorHtml = TemplatePage(title: "\(status.code) - Error", body: """
+            <h1>\(status.code) - Error</h1>
+            <p>\(message)</p>
+            <p><a href=\"/\">Return to the home page</a></p>
+        """).render()
+        sendHtmlResponse(html: errorHtml, isError: true, status: status, context: context)
     }
 }
