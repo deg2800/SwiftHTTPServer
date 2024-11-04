@@ -1,34 +1,78 @@
-#  SwiftHTTPServer
+# SwiftHTTPServer
 
-### A simple HTTP server written in Swift
+### A Simple HTTP Server Built with Swift
 
-Version 1.0.4
+**Version 1.0.4**  
 Runs on macOS and Linux - Requires Swift 5.4
 
-I created SwiftHTTPServer to better understand command line tool creation and how to build servers using Swift.
+SwiftHTTPServer was my own project to dive deeper into creating command-line tools and building servers using Swift.
 
-Originally, SwiftHTTPServer was built simply to serve html files and assets from a resources directory on a given port using standard HTTP requests/responses. 
+Originally, this server was a straightforward setup meant to serve HTML files and assets from a resources directory over a specified port using basic HTTP requests and responses.
 
-I have been working on a routing system that relies on registering routes with modules, and registering modules with the module manager. On server startup, the module manager registers all module routes with the router. When requests come in to the HTTP Handler, it is sent to the router which applies middleware before attempting to handle the route. If a route is found matching the requested URI, the router runs the route's handler. If a route is not found, the router next attempts to locate a static html or resource (.jpg, .png, .gif, .css) file in the resources directory. If no route or static file is found, the HTTP Handler sends a 404 error page. The default port of the server is **8888**
+## Features
 
-I'd like to add native SSL to the server in the future, but for now you can set up a proxy with a web server that supports SSL reverse proxy, such as Apache or Nginx.
+I've been gradually adding a routing system. It allows you to register routes with modules, and then register these modules with a module manager. When the server starts, the module manager registers all routes with the router. Requests coming into the HTTP handler are directed to the router, which applies middleware before handling the route. If the requested URI matches a route, the router calls the route’s handler. If it doesn’t find a route, the router then tries to locate a static HTML or resource file (.jpg, .png, .gif, .css) in the resources directory. If neither a route nor a static file is found, the HTTP handler returns a 404 error page. The server’s default port is **8888**.
 
-#### Instructions
+At some point, I’d like to add native SSL support, but for now, if you need SSL, you can use a reverse proxy with Apache or Nginx.
 
-If installing on macOS, so long as you already have Xcode installed, you should already have the Swift command line tools. In Terminal, run `swift --version` and if you see the version displayed you're all set. The latest version of the server is configured to use a SQLite database which should also already be installed. Run `sqlite3 --version` to verify.
+---
 
-If installing on Linux, first make sure that Swift is installed and exported to your PATH. Instructions for your distro can be found at https://swift.org. Once you can verify that running `swift --version` shows the Swift version, you also need to make sure that the `libsqlite3-dev` package is installed or SwiftNIO will not compile. Once both are installed, continue to the next step.
+## Installation
 
-Clone this repo and run `sudo ./build_server.sh`. If you receive a permission error, the script may not be executable. Run `chmod +x build_server.sh` to make the script executable, and run `sudo ./build_server.sh` again.
+### macOS
 
-You will be asked for a resource location, which will default to `/var/www/SwiftHTTPServer`. Any files in the project Resources directory will be copied here and this is where the running server will serve files from.
+On macOS, if Xcode is installed, you likely already have the Swift command line tools. Run `swift --version` in Terminal; if the version displays, you're all set. The server is also configured to use SQLite, which should already be installed. You can verify by running `sqlite3 --version`.
 
-Once the server application has been built, it is moved to `/usr/local/bin/SwiftHTTPServer` and symlinked to `/usr/bin/SwiftHTTPServer`. 
+### Linux
 
-You can now run the server by typing `SwiftHTTPServer run`. This will start the server on port 8888 and begin a log output showing all incoming requests. If you are running the server on macOS or Linux with a desktop environment, you can view the website on the computer the server is running on by going to `http://localhost:8888` in your browser. Instead of localhost, you can use your local IP address from other devices on your local network as long as the firewall on the server is configured to allow connections on port 8888. 
+On Linux, you’ll need Swift installed and added to your PATH. Instructions specific to your distro can be found at [swift.org](https://swift.org). Run `swift --version` to confirm Swift is set up. You’ll also need to install `libsqlite3-dev`, or SwiftNIO won't compile. Once Swift and SQLite are ready, you’re good to proceed.
 
-Alternatively, you can run `SwiftHTTPServer run -p [port]` or `SwiftHTTPServer run --port [port]` to begin the server on a different port. For example, `SwiftHTTPServer run -p 8505` begins the server on port 8505. You would then use this port instead of 8888 in your browser.
+---
 
-Running `SwiftHTTPServer routes` will display a list of all registered routes found in registered modules. I intend on documenting how modules work, but for now, you can copy the modules I have created as a guide. `AdminUsersModule` shows different routes handling SQLite CRUD operations and handling both GET and POST HTTP requests. Register modules in `main.swift` after initializing the `ModuleManager` by calling `moduleManager.registerModule([ModuleName]())`. 
+## Setup
 
-If you've gotten to this point and now wish to make this server *internet accessible*, I would recommend using a reverse proxy with something like Nginx or Apache, as this server is HTTP, not HTTPS. If there is a demand for it, I may write a guide for it, otherwise a quick search on Google should point you in the right direction. **Be warned** that in the current state of the server, there exists a database containing dummy user info and the ability for anyone to create more. I have not yet written the authentication middleware and the entire /admin route is currently unprotected and **public**, which also includes /admin/log which will show a log containing the IP addresses of every request the server receives. You can modify the register() function of the routes in the different modules and set protected to true which will display an access denied page for those routes, or you can remove the module registrations from main.swift which remove all routes from that module. Or you can write your own authentication middleware and register it with the middleware manager in main.swift. Be creative, it's your server; the choice is yours!
+1. **Clone the repository** and run:
+   ```bash
+   sudo ./build_server.sh
+   ```
+
+   If you get a permission error, make the script executable with:
+   ```bash
+   chmod +x build_server.sh
+   ```
+
+2. **Specify Resource Directory**: When prompted, choose a location for resources, defaulting to `/var/www/SwiftHTTPServer`. Files in the project’s `Resources` directory will be copied here. This is where the server will serve files from.
+
+3. **Install**: Once built, the server will move to `/usr/local/bin/SwiftHTTPServer` and will be symlinked to `/usr/bin/SwiftHTTPServer`.
+
+4. **Run the Server**: Start it on the default port with:
+   ```bash
+   SwiftHTTPServer run
+   ```
+   This will start the server on port 8888 and show log output for incoming requests. To view it, go to `http://localhost:8888` on the same machine. From other devices on the network, you can use the local IP if the firewall allows connections on port 8888.
+
+5. **Custom Port**: Use `-p` or `--port` to specify a different port:
+   ```bash
+   SwiftHTTPServer run -p 8505
+   ```
+   Then, use this port instead of 8888 in your browser.
+
+6. **View Registered Routes**: Running `SwiftHTTPServer routes` shows all routes in registered modules. I’ll add more documentation on modules later, but for now, you can look at the examples I’ve created. `AdminUsersModule` shows different routes handling SQLite CRUD operations and both GET and POST requests. You can register modules in `main.swift` by initializing `ModuleManager` with `moduleManager.registerModule([ModuleName]())`.
+
+---
+
+## Making the Server Internet Accessible
+
+If you want to make this server accessible online, I recommend using a reverse proxy like Nginx or Apache, as SwiftHTTPServer currently only supports HTTP. I may write a guide on setting up a reverse proxy if there’s interest, but a quick Google search should also point you in the right direction.
+
+**Important**: Right now, the server includes a dummy database with sample user data, and anyone can add to it. The `/admin` route is entirely open and public, including `/admin/log`, which logs the IP addresses of each request. To restrict access, you can:
+
+- Modify route registration in each module and set `protected` to true to show an access-denied page for those routes.
+- Remove module registrations in `main.swift` to disable all routes from a module.
+- Write custom authentication middleware and register it with the middleware manager in `main.swift`.
+
+It's your server, so feel free to experiment and customize it to your needs!
+
+--- 
+
+Enjoy using SwiftHTTPServer, and thanks for checking it out!
