@@ -1,6 +1,16 @@
 
 # Changelog
 
+## [1.0.5] - 2024-11-05
+### Added
+- **AdminLogModule.swift**: New module for managing and viewing logs in the admin interface.
+- **HTTPHandler.swift**: Introduced non-blocking file I/O with NIOThreadPool for improved file serving performance.
+
+### Changed
+- **Server.swift**: Increased server backlog from 256 to 1024 to handle higher connection loads.
+- **AdminModule.swift**: Refactored log functionality, moving it to AdminLogModule.
+- **config.json**: Updated version to 1.0.5.
+
 ## [1.0.4] - 2024-11-03
 ### Added
 - **AdminLogModule.swift**: New module for managing and viewing logs in the admin interface.
