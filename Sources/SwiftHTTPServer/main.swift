@@ -1,9 +1,16 @@
 import Foundation
+import NIO
 
 let config = AppConfig.loadData("/etc/SwiftHTTPServer/config.json")
 let middlewareManager = MiddlewareManager()
 let router = Router(middlewareManager: middlewareManager)
-let httpHandler = HTTPHandler(router: router)
+let threadPool = NIOThreadPool(numberOfThreads: System.coreCount)
+threadPool.start()
+defer {
+    try? threadPool.syncShutdownGracefully()
+}
+
+let httpHandler = HTTPHandler(router: router, threadPool: threadPool)
 let moduleManager = ModuleManager(router: router)
 let database = try Database()
 
@@ -11,7 +18,8 @@ let loggingMiddleware = LoggingMiddleware(database: database.conn)
 middlewareManager.use(loggingMiddleware)
 
 moduleManager.registerModule(HomeModule())
-moduleManager.registerModule(AdminModule(loggingMiddleware: loggingMiddleware))
+moduleManager.registerModule(AdminModule())
+moduleManager.registerModule(AdminLogModule(loggingMiddleware: loggingMiddleware))
 moduleManager.registerModule(AdminUsersModule())
 
 do {

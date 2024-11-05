@@ -11,9 +11,13 @@ final class HTTPHandler: ChannelInboundHandler {
     private var currentRequest: HTTPRequestHead?
     
     let router: Router
+    let threadPool: NIOThreadPool
+    let fileIO: NonBlockingFileIO
     
-    init(router: Router) {
+    init(router: Router, threadPool: NIOThreadPool) {
         self.router = router
+        self.threadPool = threadPool
+        self.fileIO = NonBlockingFileIO(threadPool: threadPool)
     }
 
     var resourceDirectory: String {

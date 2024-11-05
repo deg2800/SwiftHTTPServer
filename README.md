@@ -2,7 +2,7 @@
 
 ### A Simple HTTP Server Built with Swift
 
-**Version 1.0.4**  
+**Version 1.0.5**  
 Runs on macOS and Linux - Requires Swift 5.4
 
 SwiftHTTPServer was my own project to dive deeper into creating command-line tools and building servers using Swift.

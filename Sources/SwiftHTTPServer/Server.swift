@@ -8,7 +8,7 @@ func startServer(on port: Int) throws {
     }
         
     let bootstrap = ServerBootstrap(group: group)
-        .serverChannelOption(ChannelOptions.backlog, value: 256)
+        .serverChannelOption(ChannelOptions.backlog, value: 1024)
         .serverChannelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEADDR), value: 1)
         .childChannelInitializer { channel in
             channel.pipeline.configureHTTPServerPipeline().flatMap {

@@ -56,7 +56,7 @@ class Router {
         let html = content.render()
         httpHandler.sendHtmlResponse(html: html, context: context)
     }
-        
+    
     func registerRoute(_ route: Route) {
         routes[route.routeUri] = route
         if !route.routeUri.hasSuffix("/") && config.handleTrailingSlash {
@@ -64,7 +64,7 @@ class Router {
             routes[newRoute.routeUri] = newRoute
         }
     }
-        
+    
     func routeRequest(request: HTTPRequestHead, body: ByteBuffer?, context: ChannelHandlerContext) {
         let method = request.method
         let uri = request.uri
@@ -88,7 +88,7 @@ class Router {
             let headerValueString = headerValues.map(String.init).joined(separator: "")
             parameters[headerName.lowercased()] = headerValueString
         }
-
+        
         let contextWrapper = ContextWrapper(context: context, parameters: parameters)
         
         middlewareManager.applyMiddlewares(context: contextWrapper) { updatedContext in
@@ -117,7 +117,7 @@ class Router {
             }
         } else {
             if handleDynamicRoute(uri: uri, context: context.context) { return }
-
+            
             routeStaticFile(uri: uri, context: context.context)
         }
     }
@@ -136,7 +136,7 @@ class Router {
                 httpHandler.serve404(uri: uri, context: context)
             }
         }
-
+        
     }
     
     private func checkIfDynamicRoute(uri: String, context: ChannelHandlerContext) -> (dynamic: Bool, route: Route?) {
@@ -170,51 +170,114 @@ class Router {
         }
     }
     
+    //    private func routeStaticFile(uri: String, context: ChannelHandlerContext) {
+    //        func fileExtension(for filePath: String) -> String {
+    //            return URL(fileURLWithPath: filePath).pathExtension.lowercased()
+    //        }
+    //
+    //        let filePath = httpHandler.getFilePath(for: uri)
+    //
+    //        switch fileExtension(for: filePath) {
+    //        case "html", "htm":
+    //            if let html = try? String(contentsOfFile: filePath, encoding: .utf8) {
+    //                printColored("Returning HTML file \(CYAN)\(filePath)\(GREEN) for URI \(CYAN)\(uri)", color: GREEN)
+    //                httpHandler.sendHtmlResponse(html: html, context: context)
+    //            } else {
+    //                httpHandler.serve404(uri: uri, context: context)
+    //            }
+    //        case "jpg", "jpeg", "png", "gif", "css":
+    //            if let fileData = try? Data(contentsOf: URL(fileURLWithPath: filePath)) {
+    //                let mimeType: String
+    //                var fileType: String = ""
+    //
+    //                switch fileExtension(for: filePath) {
+    //                case "jpg", "jpeg":
+    //                    mimeType = "image/jpeg"
+    //                    fileType = "image"
+    //                case "png":
+    //                    mimeType = "image/png"
+    //                    fileType = "image"
+    //                case "gif":
+    //                    mimeType = "image/gif"
+    //                    fileType = "image"
+    //                case "css":
+    //                    mimeType = "text/css"
+    //                    fileType = "css"
+    //                default:
+    //                    mimeType = "application/octet-stream"
+    //                    fileType = "data"
+    //                }
+    //
+    //                printColored("Returning \(fileType) file \(CYAN)\(filePath)\(GREEN) for URI \(CYAN)\(uri)", color: GREEN)
+    //                httpHandler.sendBinaryResponse(data: fileData, mimeType: mimeType, context: context)
+    //            } else {
+    //                httpHandler.serve404(uri: uri, context: context)
+    //            }
+    //
+    //        default:
+    //            httpHandler.serve404(uri: uri, context: context)
+    //        }
+    //    }
+    
     private func routeStaticFile(uri: String, context: ChannelHandlerContext) {
         func fileExtension(for filePath: String) -> String {
             return URL(fileURLWithPath: filePath).pathExtension.lowercased()
         }
         
         let filePath = httpHandler.getFilePath(for: uri)
-
+        
+        // Determine MIME type based on file extension
+        let mimeType: String
         switch fileExtension(for: filePath) {
         case "html", "htm":
-            if let html = try? String(contentsOfFile: filePath, encoding: .utf8) {
-                printColored("Returning HTML file \(CYAN)\(filePath)\(GREEN) for URI \(CYAN)\(uri)", color: GREEN)
-                httpHandler.sendHtmlResponse(html: html, context: context)
-            } else {
-                httpHandler.serve404(uri: uri, context: context)
-            }
-        case "jpg", "jpeg", "png", "gif", "css":
-            if let fileData = try? Data(contentsOf: URL(fileURLWithPath: filePath)) {
-                let mimeType: String
-                var fileType: String = ""
-                
-                switch fileExtension(for: filePath) {
-                case "jpg", "jpeg":
-                    mimeType = "image/jpeg"
-                    fileType = "image"
-                case "png":
-                    mimeType = "image/png"
-                    fileType = "image"
-                case "gif":
-                    mimeType = "image/gif"
-                    fileType = "image"
-                case "css":
-                    mimeType = "text/css"
-                    fileType = "css"
-                default:
-                    mimeType = "application/octet-stream"
-                    fileType = "data"
-                }
-                
-                printColored("Returning \(fileType) file \(CYAN)\(filePath)\(GREEN) for URI \(CYAN)\(uri)", color: GREEN)
-                httpHandler.sendBinaryResponse(data: fileData, mimeType: mimeType, context: context)
-            } else {
-                httpHandler.serve404(uri: uri, context: context)
-            }
-
+            mimeType = "text/html; charset=utf-8"
+        case "jpg", "jpeg":
+            mimeType = "image/jpeg"
+        case "png":
+            mimeType = "image/png"
+        case "gif":
+            mimeType = "image/gif"
+        case "css":
+            mimeType = "text/css"
         default:
+            mimeType = "application/octet-stream"
+        }
+        
+        // Open the file asynchronously and handle it
+        httpHandler.fileIO.openFile(path: filePath, eventLoop: context.eventLoop).flatMap { fileHandle -> EventLoopFuture<Void> in
+            let fileHandle = fileHandle.0  // Access the NIOFileHandle from the tuple
+            
+            // Calculate the file size
+            let fileSize: Int
+            do {
+                fileSize = try FileManager.default.attributesOfItem(atPath: filePath)[.size] as? Int ?? 0
+            } catch {
+                // Close the file handle on error and return a failed future
+                _ = try? fileHandle.close()
+                return context.eventLoop.makeFailedFuture(error)
+            }
+            
+            // Create a FileRegion for the file
+            let fileRegion = FileRegion(fileHandle: fileHandle, readerIndex: 0, endIndex: fileSize)
+            
+            // Prepare HTTP headers
+            let headers = HTTPHeaders([("content-type", mimeType), ("content-length", "\(fileSize)")])
+            let responseHead = HTTPResponseHead(version: .http1_1, status: .ok, headers: headers)
+            
+            // Write the HTTP response head, file body, and end to the context
+            context.write(NIOAny(HTTPServerResponsePart.head(responseHead)), promise: nil)
+            context.write(NIOAny(HTTPServerResponsePart.body(.fileRegion(fileRegion))), promise: nil)
+            
+            return context.writeAndFlush(NIOAny(HTTPServerResponsePart.end(nil))).flatMap {
+                // Wrap fileHandle.close() in an EventLoopFuture to meet the expected return type
+                return context.eventLoop.makeSucceededFuture(()).flatMap {
+                    try? fileHandle.close()
+                    return context.eventLoop.makeSucceededFuture(())
+                }
+            }
+        }.whenFailure { error in
+            // If any part of this process fails, serve a 404 page
+            printColored("Error serving file \(filePath): \(error)", color: RED)
             httpHandler.serve404(uri: uri, context: context)
         }
     }
